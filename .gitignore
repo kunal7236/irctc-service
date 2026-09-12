@@ -3,6 +3,6 @@ __pycache__/
 *.py[cod]
 .DS_Store
 /venv
-
-# Holds the bearer token — never commit it. .env.example is the template.
+__init__.py
 .env
+._cache.py
