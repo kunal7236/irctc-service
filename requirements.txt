@@ -1,0 +1,4 @@
+requests>=2.31
+cryptography>=42.0
+fastmcp>=4.0
+uvicorn>=0.30
