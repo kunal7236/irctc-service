@@ -41,20 +41,15 @@ sudo apt install -y build-essential libssl-dev libffi-dev python3-dev cargo
 ## Configure
 
 ```bash
-./venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))'
 cp .env.example .env
 nano .env
 ```
 
 ```ini
-IRCTC_MCP_TOKEN=<the token you just generated>
 IRCTC_MCP_HOST=127.0.0.1
 IRCTC_MCP_PORT=8100
 IRCTC_MCP_ALLOWED_HOSTS=irctcmcp.kunalka.me,127.0.0.1,localhost
 ```
-
-Generate a fresh token here — don't reuse the laptop's. One token per place
-means either can be revoked without touching the other.
 
 **`IRCTC_MCP_ALLOWED_HOSTS` is the line that breaks deployments.** The server
 refuses requests whose `Host` header it doesn't recognise, and through the
@@ -124,7 +119,7 @@ sudo systemctl restart cloudflared
 
 ```bash
 cd ~/Downloads/PNRStatusBot/irctc-service
-IRCTC_MCP_URL=https://irctcmcp.kunalka.me/mcp IRCTC_MCP_TOKEN=<pi-token> \
+IRCTC_MCP_URL=https://irctcmcp.kunalka.me/mcp \
   ./venv/bin/python probe.py find_station Delhi
 ```
 
@@ -135,33 +130,15 @@ deployment when it isn't.
 `GET /` returning 404 is also correct. MCP lives at `/mcp` and only speaks
 POST; there is no page to open.
 
-## Two ways to authenticate
-
-The server accepts the same token either way, simultaneously.
-
-**Header** — `Authorization: Bearer <token>` against `https://irctcmcp.kunalka.me/mcp`.
-Use this wherever you can. Works with Gemini CLI, Claude Code, the MCP
-Inspector.
-
-**Token in the URL** — `https://irctcmcp.kunalka.me/mcp/<token>`, no header at
-all. For clients whose UI offers OAuth or nothing: Gemini's custom connected
-app dialog and Claude's connector UI without the request-headers beta.
-
-The path form is weaker: URLs land in Cloudflare's logs and the AI provider's
-logs far more readily than headers do. Fine for a personal read-only service.
-Rotate the token and both forms change together.
-
 ## Connect agents
 
-**Claude** — Settings → Connectors → Add custom connector. If the dialog shows
-a **Request headers** section (beta, not on every account), use the plain
-`/mcp` URL with Authentication set to None and an `authorization` header of
-`Bearer <token>` — include the word Bearer, Claude sends the value verbatim.
-If there is no such section, use the path form instead.
+There is no authentication, so every client just takes the URL
+`https://irctcmcp.kunalka.me/mcp`.
 
-**Gemini app (web/mobile)** — Settings → Connected apps → custom app. It has
-no header field, only OAuth client ID/secret, so paste the **path form**:
-`https://irctcmcp.kunalka.me/mcp/<token>` and leave the OAuth fields empty.
+**Claude** — Settings → Connectors → Add custom connector, Authentication None.
+
+**Gemini app (web/mobile)** — Settings → Connected apps → custom app. Leave the
+OAuth fields empty.
 
 **Gemini CLI** — `settings.json`:
 
@@ -169,29 +146,17 @@ no header field, only OAuth client ID/secret, so paste the **path form**:
 {
   "mcpServers": {
     "irctc": {
-      "httpUrl": "https://irctcmcp.kunalka.me/mcp",
-      "headers": { "Authorization": "Bearer <pi-token>" }
+      "httpUrl": "https://irctcmcp.kunalka.me/mcp"
     }
   }
 }
 ```
 
-**ChatGPT** — Settings → Connectors → Create, developer mode. Its connector
-flow expects OAuth 2.1 with dynamic client registration, so a static bearer
-token may be refused. That's the reason if it fails, not a fault in the
-server. Claude and Gemini accept the token fine.
+**ChatGPT** — Settings → Connectors → Create, developer mode, no authentication.
 
 ## Security
 
-A static shared secret in a header is fine for personal use over HTTPS, but:
-
-- Anyone holding it gets your full quota against erail, confirmtkt and
-  easemytrip, and can look up any PNR.
-- No per-client identity, expiry, or revocation short of rotating and updating
-  every agent.
-- Rotate: edit `.env`, `sudo systemctl restart irctc-mcp`.
-- Don't paste it into a chat with an agent you don't control — it lands in that
-  provider's logs.
-
-The upgrade path is OAuth via FastMCP's auth providers, which also unblocks
-ChatGPT.
+The server is open: anyone with the URL can use your quota against erail,
+confirmtkt and easemytrip, and can look up any PNR. It is read-only, so nobody
+can book or cancel through it. To lock it down again, add an auth provider from
+FastMCP to `mcp_server.py`.

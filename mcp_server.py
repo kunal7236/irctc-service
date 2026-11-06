@@ -5,7 +5,7 @@ Exposes the service layer as MCP tools over Streamable HTTP, so ChatGPT, Gemini
 and Claude can all connect to the same URL.
 
 Run:
-    IRCTC_MCP_TOKEN=... python3 mcp_server.py
+    python3 mcp_server.py
 """
 
 from __future__ import annotations
@@ -17,27 +17,16 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp
 
 import irctc
 from irctc import stations
 
 IST = ZoneInfo("Asia/Kolkata")
 
-TOKEN = os.environ.get("IRCTC_MCP_TOKEN", "").strip()
-if not TOKEN:
-    raise SystemExit(
-        "IRCTC_MCP_TOKEN is not set. Generate one with:\n"
-        "  python3 -c 'import secrets; print(secrets.token_urlsafe(32))'"
-    )
-
-auth = StaticTokenVerifier(tokens={TOKEN: {"client_id": "irctc-agent", "scopes": []}})
-
 mcp = FastMCP(
     name="irctc",
     version="0.1.0",
-    auth=auth,
     instructions=(
         "Indian Railways information: live running status and station "
         "departure boards, train schedules and routes, seat availability with "
@@ -668,49 +657,8 @@ def get_station_board(station: str, hours: int = 2) -> dict[str, Any]:
 
 # --------------------------------------------------------------------------
 
-class PathTokenAuth:
-    """Accept the bearer token as a URL path segment.
-
-    Some clients can only be given a URL. Gemini's custom connected app dialog
-    and Claude's connector UI (without the request-headers beta) both offer
-    OAuth or nothing — there is no field for a static header. Serving the same
-    MCP endpoint at /mcp/<token> lets those clients in without standing up a
-    full OAuth provider.
-
-    A request to /mcp/<token> is rewritten to /mcp with the Authorization
-    header injected, so it reaches exactly the same authenticated app. The
-    header form keeps working unchanged.
-
-    The trade: URLs land in logs (Cloudflare's, the provider's) far more
-    readily than headers do. Fine for a personal read-only service; not a
-    pattern to carry into anything shared.
-    """
-
-    def __init__(self, app: ASGIApp, token: str, base_path: str = "/mcp"):
-        self.app = app
-        self.base = base_path.rstrip("/")
-        self.prefix = f"{self.base}/{token}"
-        self.header = f"Bearer {token}".encode()
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            path = scope.get("path", "")
-            if path == self.prefix or path.startswith(self.prefix + "/"):
-                rest = path[len(self.prefix):]
-                scope = dict(scope)
-                scope["path"] = self.base + rest
-                if scope.get("raw_path"):
-                    scope["raw_path"] = scope["path"].encode()
-                headers = [(k, v) for k, v in scope["headers"]
-                           if k.lower() != b"authorization"]
-                headers.append((b"authorization", self.header))
-                scope["headers"] = headers
-        await self.app(scope, receive, send)
-
-
-def build_app(token: str = TOKEN, allowed_hosts: list[str] | None = None) -> ASGIApp:
-    app = mcp.http_app(path="/mcp", allowed_hosts=allowed_hosts)
-    return PathTokenAuth(app, token)
+def build_app(allowed_hosts: list[str] | None = None) -> ASGIApp:
+    return mcp.http_app(path="/mcp", allowed_hosts=allowed_hosts)
 
 
 if __name__ == "__main__":
@@ -725,8 +673,7 @@ if __name__ == "__main__":
     ).split(",") if h.strip()]
 
     print(f"irctc MCP")
-    print(f"  header auth : http://{host}:{port}/mcp        (Authorization: Bearer <token>)")
-    print(f"  path auth   : http://{host}:{port}/mcp/<token>  (for clients that cannot set headers)")
+    print(f"  url          : http://{host}:{port}/mcp")
     print(f"  allowed hosts: {allowed}")
 
     uvicorn.run(build_app(allowed_hosts=allowed), host=host, port=port, log_level="info")

@@ -102,14 +102,12 @@ stale — the current rules are 72 / 24 / 8 with charges of 240 / 200 / 180 /
 ## MCP server
 
 `mcp_server.py` exposes all nine services as MCP tools over Streamable HTTP,
-authenticated with a static token — sent either as an `Authorization: Bearer`
-header, or as a URL path segment (`/mcp/<token>`) for clients whose UI has no
-header field. See **MCP_SETUP.md** for local
+with no authentication. See **MCP_SETUP.md** for local
 testing on the Mac and deployment to the Pi at `irctcmcp.kunalka.me`.
 
 ```bash
 python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
-cp .env.example .env && nano .env        # set IRCTC_MCP_TOKEN
+cp .env.example .env && nano .env
 set -a && . ./.env && set +a
 ./venv/bin/python mcp_server.py          # http://127.0.0.1:8100/mcp
 ```

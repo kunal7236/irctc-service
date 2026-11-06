@@ -21,7 +21,6 @@ from pathlib import Path
 from fastmcp import Client
 
 ROOT = Path(__file__).resolve().parents[1]
-TOKEN = "test-token-do-not-use-in-production"
 
 
 def free_port() -> int:
@@ -52,49 +51,7 @@ def check(name: str, condition: bool, detail: str = ""):
 async def run(port: int):
     url = f"http://127.0.0.1:{port}/mcp"
 
-    print("\n[auth]")
-    try:
-        async with Client(url) as c:
-            await c.list_tools()
-        check("unauthenticated request is rejected", False, "server accepted a request with no token")
-    except Exception:
-        check("unauthenticated request is rejected", True)
-
-    try:
-        async with Client(url, auth="wrong-token") as c:
-            await c.list_tools()
-        check("wrong token is rejected", False, "server accepted a bad token")
-    except Exception:
-        check("wrong token is rejected", True)
-
-    print("\n[path-token auth — for clients that cannot set headers]")
-    path_url = f"http://127.0.0.1:{port}/mcp/{TOKEN}"
-    try:
-        # Deliberately no auth= here: the token is in the URL, nothing else.
-        async with Client(path_url) as c:
-            tools = await c.list_tools()
-        check("token in the URL path authenticates with no header", len(tools) == 9,
-              f"{len(tools)} tools")
-    except Exception as e:
-        check("token in the URL path authenticates with no header", False, repr(e)[:160])
-
-    try:
-        async with Client(f"http://127.0.0.1:{port}/mcp/not-the-token") as c:
-            await c.list_tools()
-        check("wrong token in the path is rejected", False, "server accepted a bad path token")
-    except Exception:
-        check("wrong token in the path is rejected", True)
-
-    try:
-        async with Client(path_url) as c:
-            r = await c.call_tool("find_station", {"query": "NDLS"})
-            payload = json.loads(r.content[0].text) if r.content else r.structured_content
-        check("tools are callable over the path-token URL",
-              payload["matches"][0]["code"] == "NDLS")
-    except Exception as e:
-        check("tools are callable over the path-token URL", False, repr(e)[:160])
-
-    async with Client(url, auth=TOKEN) as client:
+    async with Client(url) as client:
         print("\n[discovery]")
         tools = await client.list_tools()
         names = sorted(t.name for t in tools)
@@ -103,7 +60,7 @@ async def run(port: int):
             "get_train_details", "get_train_route", "get_coach_position",
             "get_pnr_status", "estimate_refund",
         ])
-        check("valid token connects", True)
+        check("client connects without a token", True)
         check(f"all 9 tools exposed ({len(names)})", names == expected, str(names))
         check("every tool has a description",
               all(t.description and len(t.description) > 60 for t in tools))
@@ -235,7 +192,7 @@ async def run(port: int):
 
 def main():
     port = free_port()
-    env = {**os.environ, "IRCTC_MCP_TOKEN": TOKEN, "IRCTC_MCP_PORT": str(port),
+    env = {**os.environ, "IRCTC_MCP_PORT": str(port),
            "PYTHONUNBUFFERED": "1"}
     proc = subprocess.Popen([sys.executable, "mcp_server.py"], cwd=ROOT, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
