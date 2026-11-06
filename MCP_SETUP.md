@@ -4,7 +4,7 @@
 
 ```
 irctc/            the service layer (+ data/ station and train lookups)
-mcp_server.py     the MCP server, 9 tools over Streamable HTTP
+mcp_server.py     the MCP server, 11 tools over Streamable HTTP
 probe.py          call one tool from the CLI — local or deployed
 tests/            57 unit tests (no network) + e2e_mcp.py (live)
 requirements.txt

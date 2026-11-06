@@ -101,7 +101,7 @@ stale — the current rules are 72 / 24 / 8 with charges of 240 / 200 / 180 /
 
 ## MCP server
 
-`mcp_server.py` exposes all nine services as MCP tools over Streamable HTTP,
+`mcp_server.py` exposes all eleven services as MCP tools over Streamable HTTP,
 with no authentication. See **MCP_SETUP.md** for local
 testing on the Mac and deployment to the Pi at `irctcmcp.kunalka.me`.
 

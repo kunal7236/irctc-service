@@ -58,10 +58,10 @@ async def run(port: int):
         expected = sorted([
             "find_station", "find_train", "search_trains", "check_seat_availability",
             "get_train_details", "get_train_route", "get_coach_position",
-            "get_pnr_status", "estimate_refund",
+            "get_pnr_status", "estimate_refund", "get_live_status", "get_station_board",
         ])
         check("client connects without a token", True)
-        check(f"all 9 tools exposed ({len(names)})", names == expected, str(names))
+        check(f"all 11 tools exposed ({len(names)})", names == expected, str(names))
         check("every tool has a description",
               all(t.description and len(t.description) > 60 for t in tools))
         check("every tool declares an input schema",
